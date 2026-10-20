@@ -1,0 +1,62 @@
+name: Bug report
+description: Report a protocol, BLE, or UI problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing MR Star Desktop. Hardware reports are especially
+        useful because the protocol was reconstructed from the Android app.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the behaviour and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the app
+        2. Scan and connect
+        3. Change ...
+    validations:
+      required: true
+
+  - type: input
+    id: light
+    attributes:
+      label: Light model / advertised name
+      description: Name shown in the device list and, if known, firmware version.
+    validations:
+      required: true
+
+  - type: input
+    id: system
+    attributes:
+      label: Operating system and Bluetooth adapter
+      placeholder: Ubuntu 24.04, Intel AX200, BlueZ 5.72
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Protocol console output
+      description: Paste the relevant TX/RX log lines. Remove any personal data.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I ran the app from this repository's current main branch.
+          required: true
+        - label: I checked whether the Android app behaves differently on the same light.
+        - label: I removed personal data from logs before posting.
