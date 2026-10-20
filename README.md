@@ -174,7 +174,8 @@ audio DSP, and a headless Qt smoke test (`QT_QPA_PLATFORM=offscreen` is set by
 the test). It does not need a BLE adapter.
 
 GitHub Actions runs the same suite on Ubuntu with Python 3.12; the workflow is
-in `.github/workflows/ci.yml`.
+in `.github/workflows/ci.yml`. Maintainers can follow
+[PUBLISHING.md](PUBLISHING.md) to push the repository and cut a release.
 
 ## Project layout
 
