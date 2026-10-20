@@ -30,7 +30,8 @@ jobs:
             name: macos-x86_64
             target: x86_64-apple-darwin
             archive: zip
-          - os: macos-15
+          # Cross-compile arm64 on the Intel runner; arm64 hosted runners are capacity constrained.
+          - os: macos-15-intel
             name: macos-arm64
             target: aarch64-apple-darwin
             archive: zip
@@ -71,6 +72,7 @@ jobs:
           workspaces: rust
 
       - name: Test
+        if: matrix.target != 'aarch64-apple-darwin'
         working-directory: rust
         run: cargo test --locked --release --target "${{ matrix.target }}"
 
@@ -84,7 +86,13 @@ jobs:
         run: |
           EXE="target/${{ matrix.target }}/release/mrstar"
           if [ "${{ runner.os }}" = "Windows" ]; then EXE="$EXE.exe"; fi
-          "$EXE" --smoke-test
+          if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
+            file "$EXE"
+            lipo -archs "$EXE"
+            lipo -archs "$EXE" | grep -qw arm64
+          else
+            "$EXE" --smoke-test
+          fi
           bytes=$(wc -c < "$EXE")
           echo "${{ matrix.name }} binary: $bytes bytes"
           if [ "$bytes" -gt 20971520 ]; then
