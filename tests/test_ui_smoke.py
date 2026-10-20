@@ -16,7 +16,7 @@ os.environ["XDG_CONFIG_HOME"] = tempfile.mkdtemp(prefix="mrstar-config-")
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from mrstar import protocol  # noqa: E402
-from mrstar.ui import MainWindow  # noqa: E402
+from mrstar.ui import ICON_PATH, MainWindow  # noqa: E402
 
 
 class UiSmokeTests(unittest.TestCase):
@@ -34,6 +34,7 @@ class UiSmokeTests(unittest.TestCase):
         self.app.processEvents()
 
     def test_pages_exist(self) -> None:
+        self.assertTrue(ICON_PATH.is_file())
         self.assertEqual(self.window.stack.count(), 6)
         self.assertEqual(len(self.window._nav_buttons), 6)
         self.assertEqual(self.window.category_list.count(), 7)

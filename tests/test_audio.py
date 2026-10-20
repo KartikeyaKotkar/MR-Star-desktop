@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
+import tempfile
 import unittest
 
 import numpy as np
 
-from mrstar.audio import BAND_COUNT, SAMPLE_RATE, MusicPlayer, _bands
+from mrstar.audio import BAND_COUNT, SAMPLE_RATE, MusicPlayer, _bands, _ffmpeg_executable
 
 
 class BandTests(unittest.TestCase):
@@ -21,6 +23,22 @@ class BandTests(unittest.TestCase):
         frequencies = np.fft.rfftfreq(2048, 1.0 / SAMPLE_RATE)
         bands = _bands(np.zeros_like(frequencies), frequencies)
         self.assertTrue(np.all(bands == 0.0))
+
+
+class FfmpegTests(unittest.TestCase):
+    def test_environment_override_wins(self) -> None:
+        previous = os.environ.get("MRSTAR_FFMPEG")
+        with tempfile.NamedTemporaryFile() as temporary:
+            os.environ["MRSTAR_FFMPEG"] = temporary.name
+            _ffmpeg_executable.cache_clear()
+            try:
+                self.assertEqual(_ffmpeg_executable(), temporary.name)
+            finally:
+                if previous is None:
+                    os.environ.pop("MRSTAR_FFMPEG", None)
+                else:
+                    os.environ["MRSTAR_FFMPEG"] = previous
+                _ffmpeg_executable.cache_clear()
 
 
 class MusicAnalysisTests(unittest.TestCase):

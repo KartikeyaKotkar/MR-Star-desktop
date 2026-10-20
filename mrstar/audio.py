@@ -13,8 +13,12 @@ ffmpeg-backed file player that also exposes FFT analysis.
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 import threading
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -27,6 +31,25 @@ else:
     _AUDIO_ERROR = None
 
 SAMPLE_RATE = 44_100
+BLOCK_SIZE = 1024
+BAND_COUNT = 32
+BAND_EDGES = np.geomspace(40.0, 16_000.0, BAND_COUNT + 1)
+MIC_WINDOW = np.hanning(BLOCK_SIZE)
+MIC_FREQUENCIES = np.fft.rfftfreq(BLOCK_SIZE, 1.0 / SAMPLE_RATE)
+_WINDOWS: dict[int, np.ndarray] = {}
+_FREQUENCIES: dict[int, np.ndarray] = {}
+
+
+def _band_limits(frequencies: np.ndarray) -> tuple[tuple[int, int], ...]:
+    limits = []
+    for index in range(BAND_COUNT):
+        low = int(np.searchsorted(frequencies, BAND_EDGES[index]))
+        high = max(int(np.searchsorted(frequencies, BAND_EDGES[index + 1])), low + 1)
+        limits.append((low, high))
+    return tuple(limits)
+
+
+MIC_BAND_LIMITS = _band_limits(MIC_FREQUENCIES)
 
 
 def _require_audio():
@@ -35,24 +58,67 @@ def _require_audio():
             f"audio backend unavailable ({_AUDIO_ERROR}); install PortAudio"
         )
     return sd
-BLOCK_SIZE = 1024
-BAND_COUNT = 32
-BAND_EDGES = np.geomspace(40.0, 16_000.0, BAND_COUNT + 1)
 
 
-def _bands(spectrum: np.ndarray, frequencies: np.ndarray) -> np.ndarray:
-    result = np.zeros(BAND_COUNT, dtype=np.float32)
-    for index in range(BAND_COUNT):
-        low = np.searchsorted(frequencies, BAND_EDGES[index])
-        high = np.searchsorted(frequencies, BAND_EDGES[index + 1])
-        high = max(high, low + 1)
-        segment = spectrum[low:high]
-        if segment.size:
-            result[index] = float(segment.max())
+@lru_cache(maxsize=1)
+def _ffmpeg_executable() -> str:
+    """Return ffmpeg from an override or PATH, with install hints on failure."""
+    override = os.environ.get("MRSTAR_FFMPEG") or os.environ.get("FFMPEG_BINARY")
+    if override:
+        path = Path(override).expanduser()
+        if path.is_file():
+            return str(path)
+        found = shutil.which(override)
+        if found:
+            return found
+        raise RuntimeError(f"MRSTAR_FFMPEG points to a missing executable: {override}")
+
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    raise RuntimeError(
+        "ffmpeg was not found on PATH. Install it, or set MRSTAR_FFMPEG to the "
+        "executable path. Linux: sudo apt install ffmpeg; macOS: brew install "
+        "ffmpeg; Windows: winget install Gyan.FFmpeg"
+    )
+
+
+def _window(size: int) -> np.ndarray:
+    window = _WINDOWS.get(size)
+    if window is None:
+        window = np.hanning(size)
+        _WINDOWS[size] = window
+    return window
+
+
+def _frequencies(size: int) -> np.ndarray:
+    frequencies = _FREQUENCIES.get(size)
+    if frequencies is None:
+        frequencies = np.fft.rfftfreq(size, 1.0 / SAMPLE_RATE)
+        _FREQUENCIES[size] = frequencies
+    return frequencies
+
+
+def _normalise_bands(result: np.ndarray) -> np.ndarray:
     peak = float(result.max())
     if peak > 1e-9:
         result /= peak
     return result
+
+
+def _bands_from_limits(
+    spectrum: np.ndarray, limits: tuple[tuple[int, int], ...]
+) -> np.ndarray:
+    result = np.zeros(BAND_COUNT, dtype=np.float32)
+    for index, (low, high) in enumerate(limits):
+        segment = spectrum[low:high]
+        if segment.size:
+            result[index] = float(segment.max())
+    return _normalise_bands(result)
+
+
+def _bands(spectrum: np.ndarray, frequencies: np.ndarray) -> np.ndarray:
+    return _bands_from_limits(spectrum, _band_limits(frequencies))
 
 
 class MicAnalyzer:
@@ -124,13 +190,11 @@ class MicAnalyzer:
         mono = indata[:, 0]
         peak = float(np.max(np.abs(mono)))
         rms = float(np.sqrt(np.mean(np.square(mono))))
-        window = mono * np.hanning(len(mono))
-        spectrum = np.abs(np.fft.rfft(window))
+        spectrum = np.abs(np.fft.rfft(mono * MIC_WINDOW))
         spectrum[0] = 0.0
-        frequencies = np.fft.rfftfreq(len(mono), 1.0 / SAMPLE_RATE)
         index = int(np.argmax(spectrum))
-        dominant = float(frequencies[index])
-        bands = _bands(spectrum, frequencies)
+        dominant = float(MIC_FREQUENCIES[index])
+        bands = _bands_from_limits(spectrum, MIC_BAND_LIMITS)
         with self._lock:
             self._peak = peak
             self._rms = rms
@@ -163,7 +227,7 @@ class MusicPlayer:
     def load(self, path: str) -> float:
         self.stop()
         command = [
-            "ffmpeg",
+            _ffmpeg_executable(),
             "-v",
             "error",
             "-i",
@@ -177,7 +241,8 @@ class MusicPlayer:
             str(SAMPLE_RATE),
             "-",
         ]
-        result = subprocess.run(command, capture_output=True)
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+        result = subprocess.run(command, capture_output=True, creationflags=creationflags)
         if result.returncode != 0:
             message = result.stderr.decode("utf-8", "replace").strip()
             raise RuntimeError(message or "ffmpeg could not decode this file")
@@ -290,10 +355,10 @@ class MusicPlayer:
             block = self._data[start:start + window, 0].astype(np.float32) / 32768.0
         if block.size < 32:
             return {"level": 0.0, "dominant": 0.0, "bands": np.zeros(BAND_COUNT, dtype=np.float32)}
-        windowed = block * np.hanning(block.size)
+        windowed = block * _window(block.size)
         spectrum = np.abs(np.fft.rfft(windowed))
         spectrum[0] = 0.0
-        frequencies = np.fft.rfftfreq(block.size, 1.0 / SAMPLE_RATE)
+        frequencies = _frequencies(block.size)
         index = int(np.argmax(spectrum))
         return {
             "level": float(np.sqrt(np.mean(np.square(block)))),

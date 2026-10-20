@@ -5,6 +5,7 @@ from __future__ import annotations
 import colorsys
 import json
 import math
+import sys
 import time
 from pathlib import Path
 
@@ -38,12 +39,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from . import protocol
+from . import __version__, protocol
 from .audio import BAND_COUNT, MusicPlayer, MicAnalyzer
 from .ble import BleClient, DeviceRecord
 from .modes import CATEGORIES, CATEGORY_BY_NAME
 
-ICON_PATH = Path(__file__).resolve().parent.parent / "assets" / "icon.png"
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.png"
 DEFAULT_COLORS = (
     (255, 0, 0),
     (255, 255, 0),
@@ -401,6 +402,7 @@ class MainWindow(QMainWindow):
         self._playlist: list[str] = []
         self._play_index = -1
         self._seek_dragging = False
+        self._inputs_loaded = False
 
         self._build()
         self._load_settings()
@@ -531,7 +533,7 @@ class MainWindow(QMainWindow):
         settings_button.clicked.connect(lambda: self._show_page(5))
         layout.addWidget(settings_button)
 
-        footer = QLabel("APK v1.0.0  •  BC … 55")
+        footer = QLabel(f"Desktop {__version__}  •  APK v1.0.0")
         footer.setObjectName("footer")
         layout.addWidget(footer)
         return sidebar
@@ -706,7 +708,7 @@ class MainWindow(QMainWindow):
         pc_card, pc_layout = self._card("Computer microphone")
         input_row = QHBoxLayout()
         self.input_combo = QComboBox()
-        self._populate_inputs()
+        self.input_combo.addItem("Default input", None)
         refresh_inputs = QPushButton("Refresh")
         refresh_inputs.clicked.connect(self._populate_inputs)
         input_row.addWidget(self.input_combo, 1)
@@ -998,6 +1000,8 @@ class MainWindow(QMainWindow):
         self.page_title.setText(self.PAGE_TITLES[index])
         for position, button in enumerate(self._nav_buttons):
             button.setChecked(position == index)
+        if index == 2 and not self._inputs_loaded:
+            self._populate_inputs()
         if index == 4:
             self._read_schedule()
 
@@ -1166,6 +1170,7 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ microphone
     def _populate_inputs(self) -> None:
+        current = self.input_combo.currentData()
         self.input_combo.clear()
         try:
             devices = MicAnalyzer.input_devices()
@@ -1176,6 +1181,11 @@ class MainWindow(QMainWindow):
             self.input_combo.addItem(name, index)
         if not devices:
             self.input_combo.addItem("No input devices", -1)
+        elif current not in (None, -1):
+            selected = self.input_combo.findData(current)
+            if selected >= 0:
+                self.input_combo.setCurrentIndex(selected)
+        self._inputs_loaded = True
 
     def _on_mic_source(self, index: int) -> None:
         device_mode = bool(self.mic_source.itemData(index))
@@ -1599,6 +1609,7 @@ STYLE = """
 QWidget {
     background: #11151c;
     color: #e7edf7;
+    font-family: "Inter", "Segoe UI", "SF Pro Text", "Ubuntu", "Noto Sans", sans-serif;
     font-size: 13px;
 }
 QMainWindow { background: #11151c; }
@@ -1753,7 +1764,11 @@ QToolTip {
 def create_application(argv: list[str]) -> QApplication:
     app = QApplication(argv)
     app.setApplicationName("MR Star")
+    app.setApplicationVersion(__version__)
     app.setOrganizationName("MRStar")
+    app.setStyle("Fusion")
+    if sys.platform.startswith("linux"):
+        app.setDesktopFileName("mrstar")
     if ICON_PATH.exists():
         app.setWindowIcon(QIcon(str(ICON_PATH)))
     app.setStyleSheet(STYLE)

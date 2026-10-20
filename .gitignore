@@ -1,11 +1,13 @@
 # Python
 .venv/
+.venv-build/
 __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
 build/
 dist/
+release/
 
 # Local tooling and the proprietary Android artifact
 opencode.json
