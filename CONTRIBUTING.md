@@ -5,10 +5,20 @@ hardware, so protocol changes need evidence and tests.
 
 ## Development setup
 
+Linux/macOS:
+
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ./run.sh
+```
+
+Windows:
+
+```bat
+py -3 -m venv .venv
+.venv\Scripts\pip install -r requirements.txt
+run.bat
 ```
 
 On Debian/Ubuntu the runtime also needs BlueZ, `ffmpeg`, and PortAudio:
@@ -17,14 +27,18 @@ On Debian/Ubuntu the runtime also needs BlueZ, `ffmpeg`, and PortAudio:
 sudo apt install bluez ffmpeg libportaudio2
 ```
 
+On macOS, `brew install ffmpeg`; on Windows, `winget install Gyan.FFmpeg`.
+Microphone and music playback are optional, but BLE control works without
+`ffmpeg` or PortAudio.
+
 ## Running tests
 
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests must pass without a BLE adapter. The Qt test runs with
-`QT_QPA_PLATFORM=offscreen`.
+On Windows use `.venv\Scripts\python.exe`. Tests must pass without a BLE
+adapter. The Qt test runs with `QT_QPA_PLATFORM=offscreen`.
 
 ## Protocol changes
 

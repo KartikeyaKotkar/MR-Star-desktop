@@ -1,8 +1,8 @@
 # MR Star Desktop
 
-A Linux desktop controller for **MR Star** BLE light strips, reconstructed from
-the shipped Android app (`MR Star - v1.0.0.apk`, package `com.frok.mrstar`,
-versionCode 104, versionName 1.0.0).
+A cross-platform desktop controller for **MR Star** BLE light strips, reconstructed
+from the shipped Android app (`MR Star - v1.0.0.apk`, package `com.frok.mrstar`,
+versionCode 104, versionName 1.0.0). It runs on Linux, Windows and macOS.
 
 The Android app has no public protocol documentation. Everything here comes
 from decompiling the APK and reading its resource tables; the resulting frames
@@ -11,7 +11,30 @@ are byte-for-byte compatible with the commands the phone sends.
 > **Status:** early release. The protocol is verified against the decompiled
 > APK, but not yet against physical hardware. Hardware reports are welcome.
 
-![MR Star icon](assets/icon.png)
+![MR Star icon](mrstar/assets/icon.png)
+
+## Download
+
+Prebuilt bundles are attached to the
+[latest GitHub release](https://github.com/KartikeyaKotkar/MR-Star-desktop/releases/latest):
+
+| Platform | Asset | Notes |
+| --- | --- | --- |
+| Linux x86_64 | `MRStar-1.0.0-linux-x86_64.tar.gz` | glibc 2.34+; BlueZ, D-Bus, `libportaudio2` |
+| Windows x86_64 | `MRStar-1.0.0-windows-x86_64.zip` | Windows 10/11; Bluetooth enabled |
+| macOS Apple Silicon | `MRStar-1.0.0-macos-arm64.zip` | macOS 13+ |
+| macOS Intel | `MRStar-1.0.0-macos-x86_64.zip` | macOS 13+ |
+
+The release bundles are unsigned. Windows SmartScreen and macOS Gatekeeper may
+warn; on macOS, right-click the app and choose **Open** once, or remove the
+quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/MR Star.app"
+```
+
+Music playback needs `ffmpeg` on `PATH` (or `MRSTAR_FFMPEG` set to its path).
+Linux also needs `libportaudio2` for microphone and music output.
 
 ## Features
 
@@ -122,13 +145,22 @@ Anything else is logged as raw bytes.
 
 ## Requirements
 
+### Prebuilt bundles
+
+- Linux x86_64: glibc 2.34+, BlueZ and a working D-Bus session.
+- Windows 10/11: Bluetooth enabled; no separate Python install.
+- macOS 13 or newer: Bluetooth and microphone permissions are requested by
+  the app on first use.
+
+### Running from source
+
 - Python 3.10+ (tested with Python 3.14).
-- `PySide6`, `bleak` 3.x, `numpy`, `sounddevice`.
-- Linux with BlueZ and a working D-Bus session (bleak's Linux backend).
-- `ffmpeg` on `PATH` for music playback.
-- A microphone input device for PC-mic mode (optional).
-- PortAudio for microphone/music output (the `sounddevice` backend). On
-  Debian/Ubuntu: `sudo apt install libportaudio2`.
+- `PySide6-Essentials`, `bleak` 3.x, `numpy`, `sounddevice`.
+- `ffmpeg` on `PATH` for music playback (or set `MRSTAR_FFMPEG`).
+- Linux: BlueZ, D-Bus, `libportaudio2`.
+- macOS: PortAudio is bundled by the `sounddevice` wheel; the app needs
+  Bluetooth and microphone permission.
+- Windows: PortAudio is bundled by the `sounddevice` wheel.
 
 On Linux, make sure the adapter is powered and not blocked:
 
@@ -138,18 +170,32 @@ bluetoothctl show          # check "Powered: yes"
 rfkill list bluetooth      # must not be soft/hard blocked
 ```
 
-## Run
+On Linux, `sudo apt install bluez libportaudio2 ffmpeg` covers the runtime
+dependencies. On macOS, `brew install ffmpeg`; on Windows,
+`winget install Gyan.FFmpeg`.
 
-Clone the repository, then start the app:
+## Run from source
+
+Clone the repository, then start the app.
+
+Linux / macOS:
 
 ```bash
-git clone <repository-url> MR-Star-desktop
+git clone https://github.com/KartikeyaKotkar/MR-Star-desktop.git
 cd MR-Star-desktop
 ./run.sh
 ```
 
-`run.sh` creates `.venv` if needed, installs missing dependencies, and starts
-`python -m mrstar`.
+Windows:
+
+```bat
+git clone https://github.com/KartikeyaKotkar/MR-Star-desktop.git
+cd MR-Star-desktop
+run.bat
+```
+
+`run.sh` / `run.bat` create `.venv` if needed, install missing dependencies, and
+start `python -m mrstar`.
 
 Manual setup:
 
@@ -157,6 +203,15 @@ Manual setup:
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m mrstar
+```
+
+On Windows the virtual environment uses `.venv\Scripts\python.exe`.
+
+You can also install the package and use its entry point:
+
+```bash
+python -m pip install .
+mrstar
 ```
 
 The shipped Android APK is **not** distributed in this repository: it is
@@ -173,9 +228,11 @@ The suite covers exact frame bytes, notification decoding, the mode catalogue,
 audio DSP, and a headless Qt smoke test (`QT_QPA_PLATFORM=offscreen` is set by
 the test). It does not need a BLE adapter.
 
-GitHub Actions runs the same suite on Ubuntu with Python 3.12; the workflow is
-in `.github/workflows/ci.yml`. Maintainers can follow
-[PUBLISHING.md](PUBLISHING.md) to push the repository and cut a release.
+GitHub Actions runs the same suite on Linux, Windows and macOS with Python 3.12;
+the workflow is in `.github/workflows/ci.yml`. Tagged releases build native
+bundles for all three platforms via `.github/workflows/release.yml`. Maintainers
+can follow [PUBLISHING.md](PUBLISHING.md); local packaging steps are in
+[BUILDING.md](BUILDING.md).
 
 ## Project layout
 
@@ -185,13 +242,19 @@ mrstar/modes.py      71-mode catalogue and categories
 mrstar/ble.py        threaded bleak transport, scan filter, reconnects
 mrstar/audio.py      microphone analyser and ffmpeg/sounddevice player
 mrstar/ui.py         PySide6 window, pages, theme, settings
+mrstar/assets/       application icons (PNG, ICO, ICNS)
 mrstar/__main__.py   application entry point
+launcher.py          frozen-app entry point
+packaging/           PyInstaller spec and Windows version metadata
+run.sh / run.bat     Unix and Windows source launchers
 tests/               protocol, catalogue, DSP and UI smoke tests
-.github/workflows/   GitHub Actions CI
+.github/workflows/   CI and tagged-release builds
 ```
 
 The BLE event loop runs on a private asyncio thread. Qt talks to it through
-`DeviceBridge` signals, so the UI never blocks on GATT operations.
+`DeviceBridge` signals, so the UI never blocks on GATT operations. Release
+builds use `PySide6-Essentials`, a one-directory bundle, and precomputed audio
+windows to keep startup and artifact size down.
 
 ## Limitations
 
@@ -199,6 +262,12 @@ The BLE event loop runs on a private asyncio thread. Qt talks to it through
   protocol is verified against the decompiled APK, not against a live strip.
   If a command behaves differently on your hardware, use the protocol console
   and compare it with the Android app.
+- Release bundles are unsigned, so Windows SmartScreen and macOS Gatekeeper may
+  show warnings. macOS builds target macOS 13+; Windows builds target Windows
+  10/11.
+- Music playback requires `ffmpeg`; the desktop port does not bundle it.
+- macOS and Windows ask for Bluetooth and microphone permissions on first use.
+  Linux BLE access depends on BlueZ and the adapter permissions.
 - Music and PC-microphone effects are desktop reimplementations of the Android
   `Visualizer`/`MediaRecorder` logic. They use the same command ids and cadence,
   but the exact colour mapping is an approximation.
@@ -217,10 +286,12 @@ This is an independent interoperability project. It contains no Android app
 code; protocol constants and animation names were derived from the shipped
 APK for the purpose of controlling the same hardware from a desktop.
 
-The launcher icon in `assets/icon.png` comes from the Android package and is
-used only to identify the device; it is not covered by the MIT license.
+The launcher icon in `mrstar/assets/icon.png` comes from the Android package and
+is used only to identify the device; it is not covered by the MIT license.
 
 The Android APK itself is not distributed here and must not be committed.
+Third-party components (`PySide6`, `bleak`, `numpy`, `sounddevice`, and any
+system `ffmpeg`) keep their own licenses.
 
 ## Contributing
 

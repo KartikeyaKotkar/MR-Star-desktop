@@ -8,7 +8,9 @@ All notable changes to this project are documented here.
 
 ### Added
 
-- Desktop BLE controller reconstructed from the MR Star Android app v1.0.0.
+- Cross-platform desktop controller for Linux, Windows and macOS.
+- Native release bundles for Linux x86_64, Windows x86_64, macOS Intel and
+  macOS Apple Silicon.
 - Power, colour wheel, brightness, presets, colour order, and pixel count.
 - All 71 animation modes defined by the APK, including the hidden Flow set.
 - Device microphone effects, sensitivity, and source selection.
@@ -16,6 +18,17 @@ All notable changes to this project are documented here.
 - Two weekly schedules, device clock sync, and schedule readback.
 - Protocol console with TX/RX logging and raw frame sending.
 - Exact regression tests for frames, notifications, modes, DSP, and the Qt UI.
+
+### Changed
+
+- Use `PySide6-Essentials` and one-directory PyInstaller bundles instead of the
+  full Qt metapackage.
+- Precompute microphone FFT windows/frequencies and cache music analysis data.
+- Defer audio-device enumeration until the microphone page is opened.
+- Use the Fusion Qt style for consistent rendering on all platforms.
+- Find `ffmpeg` through `MRSTAR_FFMPEG`, then `PATH`, and hide its console window
+  on Windows.
+- Add Windows launcher, macOS app metadata, and platform icons.
 
 ### Notes
 

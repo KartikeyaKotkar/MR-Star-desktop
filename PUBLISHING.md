@@ -39,17 +39,22 @@ The `CI` workflow runs automatically on the first push and on pull requests.
 ```bash
 git tag -a v1.0.0 -m "MR Star Desktop 1.0.0"
 git push origin v1.0.0
-gh release create v1.0.0 --generate-notes
 ```
 
-The release contains GitHub's source archives. No binary is attached because
-the application runs directly from source.
+The `Release` workflow builds and smoke-tests native bundles for Linux x86_64,
+Windows x86_64, macOS Intel and macOS Apple Silicon, then attaches them to the
+GitHub release. You do not need to create the release manually.
+
+To test the build without publishing, run the `Release` workflow manually with
+`workflow_dispatch`; the build jobs run, but the release job is skipped because
+the ref is not a tag.
 
 ## 4. After publishing
 
-- Confirm the CI check is green.
-- Add the repository URL to `README.md` if you want an explicit clone command.
-- Keep `requirements.txt` and `.github/workflows/ci.yml` aligned.
+- Confirm both the CI matrix and the release build are green.
+- Confirm the release has four platform archives.
+- Keep `requirements.txt`, `requirements-build.txt`, and the workflows aligned.
 - Do not force-add the APK. It is proprietary and intentionally excluded.
 - Hardware validation reports belong in GitHub issues; see
   `CONTRIBUTING.md`.
+- Release binaries are unsigned; see `BUILDING.md` for signing caveats.
