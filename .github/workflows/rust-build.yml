@@ -1,0 +1,143 @@
+name: Rust build
+
+on:
+  push:
+    branches: [rust]
+    tags: ["rust-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            name: linux-x86_64
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: windows-latest
+            name: windows-x86_64
+            target: x86_64-pc-windows-msvc
+            archive: zip
+          - os: macos-15-intel
+            name: macos-x86_64
+            target: x86_64-apple-darwin
+            archive: zip
+          - os: macos-15
+            name: macos-arm64
+            target: aarch64-apple-darwin
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev \
+            libdbus-1-dev \
+            libegl1-mesa-dev \
+            libgl1-mesa-dev \
+            libudev-dev \
+            libwayland-dev \
+            libx11-dev \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxrandr-dev \
+            pkg-config
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Test
+        working-directory: rust
+        run: cargo test --locked --release --target "${{ matrix.target }}"
+
+      - name: Build
+        working-directory: rust
+        run: cargo build --locked --release --target "${{ matrix.target }}"
+
+      - name: Smoke test and enforce 20 MiB ceiling
+        shell: bash
+        working-directory: rust
+        run: |
+          EXE="target/${{ matrix.target }}/release/mrstar"
+          if [ "${{ runner.os }}" = "Windows" ]; then EXE="$EXE.exe"; fi
+          "$EXE" --smoke-test
+          bytes=$(wc -c < "$EXE")
+          echo "${{ matrix.name }} binary: $bytes bytes"
+          if [ "$bytes" -gt 20971520 ]; then
+            echo "::error::${{ matrix.name }} binary exceeds 20 MiB: $bytes bytes"
+            exit 1
+          fi
+
+      - name: Package
+        shell: bash
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          ASSET="MRStar-rs-${VERSION}-${{ matrix.name }}"
+          EXE="target/${{ matrix.target }}/release/mrstar"
+          if [ "${{ runner.os }}" = "Windows" ]; then EXE="$EXE.exe"; fi
+          mkdir -p "dist/$ASSET" release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp "$EXE" "dist/$ASSET/MRStar.exe"
+          else
+            cp "$EXE" "dist/$ASSET/MRStar"
+          fi
+          cp README.md "dist/$ASSET/README.md"
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -czf "release/$ASSET.tar.gz" -C dist "$ASSET"
+          elif [ "${{ runner.os }}" = "Windows" ]; then
+            powershell -NoProfile -Command "Compress-Archive -Path 'dist/$ASSET' -DestinationPath 'release/$ASSET.zip'"
+          else
+            (cd dist && zip -r "../release/$ASSET.zip" "$ASSET")
+          fi
+          ls -lh "release/$ASSET.${{ matrix.archive }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-${{ matrix.name }}
+          path: rust/release/*
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/rust-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: MR Star Desktop Rust ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: release/*

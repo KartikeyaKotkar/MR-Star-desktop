@@ -11,6 +11,13 @@ are byte-for-byte compatible with the commands the phone sends.
 > **Status:** early release. The protocol is verified against the decompiled
 > APK, but not yet against physical hardware. Hardware reports are welcome.
 
+## Rust port
+
+The `rust` branch contains a native Rust implementation of the same controller.
+It targets a single small executable (local Linux release: 6.2 MiB) and keeps
+the Python app on `main` unchanged. See [`rust/README.md`](rust/README.md) for
+the build, feature matrix and size comparison.
+
 ![MR Star icon](mrstar/assets/icon.png)
 
 ## Download
