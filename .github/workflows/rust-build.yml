@@ -104,6 +104,13 @@ jobs:
           mkdir -p "dist/$ASSET" release
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp "$EXE" "dist/$ASSET/MRStar.exe"
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            APP="dist/$ASSET/MR Star.app"
+            mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+            cp "$EXE" "$APP/Contents/MacOS/MRStar"
+            cp macos/Info.plist "$APP/Contents/Info.plist"
+            cp ../mrstar/assets/icon.icns "$APP/Contents/Resources/icon.icns"
+            codesign --force --deep --sign - "$APP"
           else
             cp "$EXE" "dist/$ASSET/MRStar"
           fi
@@ -113,9 +120,16 @@ jobs:
           elif [ "${{ runner.os }}" = "Windows" ]; then
             powershell -NoProfile -Command "Compress-Archive -Path 'dist/$ASSET' -DestinationPath 'release/$ASSET.zip'"
           else
-            (cd dist && zip -r "../release/$ASSET.zip" "$ASSET")
+            (cd dist && zip -ry "../release/$ASSET.zip" "$ASSET")
           fi
-          ls -lh "release/$ASSET.${{ matrix.archive }}"
+          archive="release/$ASSET.${{ matrix.archive }}"
+          archive_bytes=$(wc -c < "$archive")
+          echo "${{ matrix.name }} archive: $archive_bytes bytes"
+          if [ "$archive_bytes" -gt 20971520 ]; then
+            echo "::error::${{ matrix.name }} archive exceeds 20 MiB: $archive_bytes bytes"
+            exit 1
+          fi
+          ls -lh "$archive"
 
       - uses: actions/upload-artifact@v4
         with:

@@ -42,7 +42,9 @@ Runtime prerequisites:
 
 - Linux: BlueZ, D-Bus, ALSA, X11 or Wayland, OpenGL.
 - Windows 10/11: Bluetooth enabled. WASAPI is provided by the OS.
-- macOS 13+: Bluetooth and microphone permissions.
+- macOS 13+: distributed as an ad-hoc-signed `MR Star.app` with the Bluetooth
+  and microphone usage descriptions required by macOS. It is not notarized, so
+  the first launch may need right-click -> Open.
 - Music playback: `ffmpeg` on `PATH`, or `MRSTAR_FFMPEG` pointing at it.
 
 No Python, Qt, PortAudio or bundled runtime is required.
