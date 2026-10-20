@@ -57,8 +57,9 @@ QT_QPA_PLATFORM=offscreen "dist/MR Star.app/Contents/MacOS/MRStar" --smoke-test
 
 ## Platform notes
 
-- Linux needs `libportaudio2` at runtime for audio. BlueZ and D-Bus are required
-  for BLE. The release is built on Ubuntu 22.04 for glibc 2.34 compatibility.
+- Linux needs `libportaudio2`, `libxcb-cursor0` and a working X11/Wayland stack
+  at runtime. BlueZ and D-Bus are required for BLE. The release is built on
+  Ubuntu 22.04 for glibc 2.34 compatibility.
 - Windows bundles PortAudio through the `sounddevice` wheel. The app uses
   `CREATE_NO_WINDOW` when calling ffmpeg so a console does not flash.
 - macOS bundles PortAudio through the `sounddevice` wheel. The app bundle sets

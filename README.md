@@ -20,7 +20,7 @@ Prebuilt bundles are attached to the
 
 | Platform | Asset | Notes |
 | --- | --- | --- |
-| Linux x86_64 | `MRStar-1.0.0-linux-x86_64.tar.gz` | glibc 2.34+; BlueZ, D-Bus, `libportaudio2` |
+| Linux x86_64 | `MRStar-1.0.0-linux-x86_64.tar.gz` | glibc 2.34+; BlueZ, D-Bus, `libportaudio2`, `libxcb-cursor0` |
 | Windows x86_64 | `MRStar-1.0.0-windows-x86_64.zip` | Windows 10/11; Bluetooth enabled |
 | macOS Apple Silicon | `MRStar-1.0.0-macos-arm64.zip` | macOS 13+ |
 | macOS Intel | `MRStar-1.0.0-macos-x86_64.zip` | macOS 13+ |
@@ -34,7 +34,7 @@ xattr -dr com.apple.quarantine "/Applications/MR Star.app"
 ```
 
 Music playback needs `ffmpeg` on `PATH` (or `MRSTAR_FFMPEG` set to its path).
-Linux also needs `libportaudio2` for microphone and music output.
+Linux also needs `libportaudio2` and `libxcb-cursor0` for audio and the Qt X11\nplatform plugin.
 
 ## Features
 
@@ -157,7 +157,7 @@ Anything else is logged as raw bytes.
 - Python 3.10+ (tested with Python 3.14).
 - `PySide6-Essentials`, `bleak` 3.x, `numpy`, `sounddevice`.
 - `ffmpeg` on `PATH` for music playback (or set `MRSTAR_FFMPEG`).
-- Linux: BlueZ, D-Bus, `libportaudio2`.
+- Linux: BlueZ, D-Bus, `libportaudio2`, `libxcb-cursor0`.
 - macOS: PortAudio is bundled by the `sounddevice` wheel; the app needs
   Bluetooth and microphone permission.
 - Windows: PortAudio is bundled by the `sounddevice` wheel.
@@ -170,8 +170,8 @@ bluetoothctl show          # check "Powered: yes"
 rfkill list bluetooth      # must not be soft/hard blocked
 ```
 
-On Linux, `sudo apt install bluez libportaudio2 ffmpeg` covers the runtime
-dependencies. On macOS, `brew install ffmpeg`; on Windows,
+On Linux, `sudo apt install bluez libportaudio2 libxcb-cursor0 ffmpeg` covers the
+runtime dependencies. On macOS, `brew install ffmpeg`; on Windows,
 `winget install Gyan.FFmpeg`.
 
 ## Run from source

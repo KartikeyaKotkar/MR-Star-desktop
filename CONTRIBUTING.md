@@ -24,7 +24,7 @@ run.bat
 On Debian/Ubuntu the runtime also needs BlueZ, `ffmpeg`, and PortAudio:
 
 ```bash
-sudo apt install bluez ffmpeg libportaudio2
+sudo apt install bluez ffmpeg libportaudio2 libxcb-cursor0
 ```
 
 On macOS, `brew install ffmpeg`; on Windows, `winget install Gyan.FFmpeg`.

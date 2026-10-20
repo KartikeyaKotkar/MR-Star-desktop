@@ -48,6 +48,7 @@ jobs:
             libegl1 \
             libgl1 \
             libportaudio2 \
+            libxcb-cursor0 \
             libxkbcommon0
 
       - name: Install build dependencies
