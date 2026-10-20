@@ -610,8 +610,8 @@ impl MrStarApp {
     }
 
     fn color_page(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_top(|ui| {
-            card(ui, "Colour wheel", |ui| {
+        ui.columns(2, |columns| {
+            card(&mut columns[0], "Colour wheel", |ui| {
                 if let Some((hue, saturation)) = self.wheel.show(ui, self.hue, self.saturation) {
                     self.hue = hue;
                     self.saturation = saturation;
@@ -650,8 +650,8 @@ impl MrStarApp {
                     .size(12.0),
                 );
             });
-            ui.add_space(14.0);
-            ui.vertical(|ui| {
+            let right = &mut columns[1];
+            right.vertical(|ui| {
                 card(ui, "Power & brightness", |ui| {
                     if ui.checkbox(&mut self.settings.power, "Power").changed() {
                         self.send_power();
@@ -660,9 +660,12 @@ impl MrStarApp {
                     let mut brightness = self.settings.brightness;
                     if ui
                         .add(
-                            egui::Slider::new(&mut brightness, protocol::MIN_BRIGHTNESS..=protocol::MAX_BRIGHTNESS)
-                                .text("Brightness")
-                                .step_by(1.0),
+                            egui::Slider::new(
+                                &mut brightness,
+                                protocol::MIN_BRIGHTNESS..=protocol::MAX_BRIGHTNESS,
+                            )
+                            .text("Brightness")
+                            .step_by(1.0),
                         )
                         .changed()
                     {
@@ -746,8 +749,8 @@ impl MrStarApp {
     fn mode_page(&mut self, ui: &mut egui::Ui) {
         let category =
             modes::category_by_name(&self.settings.mode_category).unwrap_or(&modes::CATEGORIES[0]);
-        ui.horizontal_top(|ui| {
-            card(ui, "Categories", |ui| {
+        ui.columns(2, |columns| {
+            card(&mut columns[0], "Categories", |ui| {
                 for item in modes::CATEGORIES {
                     let label = if item.hidden {
                         format!("{}  (not in APK UI)", item.name)
@@ -771,8 +774,7 @@ impl MrStarApp {
                     .size(12.0),
                 );
             });
-            ui.add_space(14.0);
-            card(ui, "Animations", |ui| {
+            card(&mut columns[1], "Animations", |ui| {
                 let selected = self
                     .settings
                     .mode_selection
@@ -818,7 +820,11 @@ impl MrStarApp {
                 let mut brightness = self.settings.brightness;
                 if ui
                     .add(
-                        egui::Slider::new(&mut brightness, protocol::MIN_BRIGHTNESS..=protocol::MAX_BRIGHTNESS).text("Brightness"),
+                        egui::Slider::new(
+                            &mut brightness,
+                            protocol::MIN_BRIGHTNESS..=protocol::MAX_BRIGHTNESS,
+                        )
+                        .text("Brightness"),
                     )
                     .changed()
                 {
@@ -838,8 +844,8 @@ impl MrStarApp {
     }
 
     fn mic_page(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_top(|ui| {
-            card(ui, "Microphone source", |ui| {
+        ui.columns(2, |columns| {
+            card(&mut columns[0], "Microphone source", |ui| {
                 let old_source = self.settings.mic_source;
                 egui::ComboBox::from_id_salt("mic-source")
                     .selected_text(if old_source == 0 {
@@ -916,8 +922,7 @@ impl MrStarApp {
                     ),
                 );
             });
-            ui.add_space(14.0);
-            card(ui, "Computer microphone", |ui| {
+            card(&mut columns[1], "Computer microphone", |ui| {
                 ui.horizontal(|ui| {
                     egui::ComboBox::from_id_salt("mic-input")
                         .selected_text(
@@ -995,8 +1000,8 @@ impl MrStarApp {
     }
 
     fn music_page(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_top(|ui| {
-            card(ui, "Playlist", |ui| {
+        ui.columns(2, |columns| {
+            card(&mut columns[0], "Playlist", |ui| {
                 egui::ScrollArea::vertical()
                     .max_height(250.0)
                     .auto_shrink([false, false])
@@ -1054,8 +1059,7 @@ impl MrStarApp {
                     .size(12.0),
                 );
             });
-            ui.add_space(14.0);
-            card(ui, "Player", |ui| {
+            card(&mut columns[1], "Player", |ui| {
                 let now_playing = self
                     .music
                     .path()
@@ -1169,10 +1173,9 @@ impl MrStarApp {
 
     fn schedule_page(&mut self, ui: &mut egui::Ui) {
         let mut changed = false;
-        ui.horizontal_top(|ui| {
-            changed |= schedule_card(ui, "Schedule On", &mut self.settings.on);
-            ui.add_space(14.0);
-            changed |= schedule_card(ui, "Schedule Off", &mut self.settings.off);
+        ui.columns(2, |columns| {
+            changed |= schedule_card(&mut columns[0], "Schedule On", &mut self.settings.on);
+            changed |= schedule_card(&mut columns[1], "Schedule Off", &mut self.settings.off);
         });
         if changed {
             self.persist();
@@ -1213,8 +1216,9 @@ impl MrStarApp {
     }
 
     fn settings_page(&mut self, ui: &mut egui::Ui) {
-        ui.horizontal_top(|ui| {
-            ui.vertical(|ui| {
+        ui.columns(2, |columns| {
+            let left = &mut columns[0];
+            left.vertical(|ui| {
                 card(ui, "Strip wiring", |ui| {
                     ui.label(RichText::new("Colour order").color(MUTED));
                     let old_order = self.settings.color_order;
@@ -1294,8 +1298,7 @@ impl MrStarApp {
                     }
                 });
             });
-            ui.add_space(14.0);
-            card(ui, "Protocol console", |ui| {
+            card(&mut columns[1], "Protocol console", |ui| {
                 ui.horizontal(|ui| {
                     ui.add(
                         egui::TextEdit::singleline(&mut self.raw_hex)

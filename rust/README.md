@@ -81,7 +81,7 @@ No Python, Qt, PortAudio or bundled runtime is required.
 The Rust target is a single stripped executable. Local Linux release build:
 
 ```text
-rust/target/release/mrstar   6,496,128 bytes  (6.20 MiB)
+rust/target/release/mrstar   6,497,536 bytes  (6.20 MiB)
 ```
 
 The Linux release archive containing that executable and the README is about
