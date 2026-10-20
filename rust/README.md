@@ -45,7 +45,9 @@ Runtime prerequisites:
 - macOS 13+: distributed as an ad-hoc-signed `MR Star.app` with the Bluetooth
   and microphone usage descriptions required by macOS. It is not notarized, so
   the first launch may need right-click -> Open.
-- Music playback: `ffmpeg` on `PATH`, or `MRSTAR_FFMPEG` pointing at it.
+- Music playback: `ffmpeg` on `PATH`, or `MRSTAR_FFMPEG` pointing at it. On
+  macOS the app also checks `/opt/homebrew/bin` and `/usr/local/bin`, because
+  Finder-launched apps do not inherit the shell `PATH`.
 
 No Python, Qt, PortAudio or bundled runtime is required.
 
@@ -79,11 +81,11 @@ No Python, Qt, PortAudio or bundled runtime is required.
 The Rust target is a single stripped executable. Local Linux release build:
 
 ```text
-rust/target/release/mrstar   6,495,888 bytes  (6.19 MiB)
+rust/target/release/mrstar   6,496,128 bytes  (6.20 MiB)
 ```
 
-The Linux release archive containing that executable and the README is
-2,975,306 bytes (2.84 MiB). The Python `v1.0.0` Linux distribution is a
+The Linux release archive containing that executable and the README is about
+2.98 MB (2.84 MiB). The Python `v1.0.0` Linux distribution is a
 PyInstaller one-directory bundle: about 243 MiB on disk and 90,442,064 bytes
 (86.25 MiB) compressed. Its `MRStar` launcher binary alone is about 5.1 MiB,
 but it cannot run without the surrounding bundle.

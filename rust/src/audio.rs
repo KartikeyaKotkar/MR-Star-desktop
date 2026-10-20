@@ -621,7 +621,17 @@ fn find_on_path(program: &str) -> Option<PathBuf> {
             }
         }
     }
-    None
+    let fallbacks: &[&str] = if cfg!(windows) {
+        &[r"C:\ffmpeg\bin\ffmpeg.exe"]
+    } else if cfg!(target_os = "macos") {
+        &["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+    } else {
+        &["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg"]
+    };
+    fallbacks
+        .iter()
+        .map(PathBuf::from)
+        .find(|candidate| candidate.is_file())
 }
 
 #[cfg(test)]
