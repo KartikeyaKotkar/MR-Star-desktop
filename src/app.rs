@@ -432,7 +432,7 @@ impl MrStarApp {
                 }
                 ui.label(
                     RichText::new(if self.scanning {
-                        "Scanning for 0x2022 advertisements"
+                        "Scanning for MR Star advertisements"
                     } else {
                         "Not scanning"
                     })
@@ -455,6 +455,11 @@ impl MrStarApp {
                         .configure(self.settings.auto_connect, self.settings.show_all);
                     self.persist();
                 }
+                ui.label(
+                    RichText::new("MR Star = company ID 0x2022 or service FFF0")
+                        .color(MUTED)
+                        .size(11.0),
+                );
                 ui.add_space(4.0);
                 ui.label(RichText::new("DEVICES").color(MUTED).size(11.0).strong());
                 let devices = self.devices.clone();

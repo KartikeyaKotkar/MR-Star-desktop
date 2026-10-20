@@ -48,6 +48,13 @@ struct ConnectedDevice {
     write: btleplug::api::Characteristic,
 }
 
+fn is_mr_star_advertisement(manufacturer_data: &HashMap<u16, Vec<u8>>, services: &[Uuid]) -> bool {
+    manufacturer_data.contains_key(&protocol::MANUFACTURER_ID)
+        || Uuid::parse_str(protocol::SERVICE_UUID)
+            .map(|uuid| services.contains(&uuid))
+            .unwrap_or(false)
+}
+
 struct Worker {
     central: Adapter,
     events: Sender<BleEvent>,
@@ -108,6 +115,11 @@ impl Worker {
             .retain(|address, _| self.connected.contains_key(address));
         self.peripherals.clear();
         self.attempted.clear();
+        // Publish the cleared list before awaiting the adapter. Otherwise a
+        // failed or slow scan leaves stale rows in the UI whose peripherals
+        // have already been dropped, so Connect reports "device is no longer
+        // available".
+        self.publish();
         if let Err(first_error) = self.central.start_scan(ScanFilter::default()).await {
             let retry = match Uuid::parse_str(protocol::SERVICE_UUID) {
                 Ok(uuid) => {
@@ -162,9 +174,10 @@ impl Worker {
                         .clone()
                         .or_else(|| properties.advertisement_name.clone())
                         .unwrap_or_default();
-                    let matched = properties
-                        .manufacturer_data
-                        .contains_key(&protocol::MANUFACTURER_ID);
+                    let matched = is_mr_star_advertisement(
+                        &properties.manufacturer_data,
+                        &properties.services,
+                    );
                     if !matched && !(self.show_all && !name.is_empty()) {
                         continue;
                     }
@@ -233,9 +246,32 @@ impl Worker {
         if self.connected.len() >= MAX_CONNECTIONS {
             return Err(format!("connection limit ({MAX_CONNECTIONS}) reached"));
         }
-        let Some(peripheral) = self.peripherals.get(address).cloned() else {
-            return Err("device is no longer available".into());
+        let peripheral = match self.peripherals.get(address).cloned() {
+            Some(peripheral) => Some(peripheral),
+            None => {
+                // A scan restart clears the map before the OS list does. Look
+                // the device up again instead of failing on an otherwise live
+                // row.
+                match self.central.peripherals().await {
+                    Ok(peripherals) => peripherals
+                        .into_iter()
+                        .find(|peripheral| peripheral.id().to_string() == address),
+                    Err(error) => {
+                        self.log(format!("Could not refresh the BLE device list: {error}"));
+                        None
+                    }
+                }
+            }
         };
+        let Some(peripheral) = peripheral else {
+            let error = format!(
+                "{address} is no longer visible to Bluetooth. Power the light on, keep it near the PC, and scan again."
+            );
+            log_error(&self.events, format!("Connect failed: {error}"));
+            return Err(error);
+        };
+        self.peripherals
+            .insert(address.to_string(), peripheral.clone());
         if let Some(record) = self.devices.get_mut(address) {
             record.status = "connecting".into();
         }
@@ -261,11 +297,26 @@ impl Worker {
             let notify_uuid =
                 Uuid::parse_str(protocol::NOTIFY_UUID).map_err(|error| error.to_string())?;
             let characteristics = peripheral.characteristics();
-            let write = characteristics
+            let Some(write) = characteristics
                 .iter()
                 .find(|characteristic| characteristic.uuid == write_uuid)
                 .cloned()
-                .ok_or_else(|| "write characteristic 0xFFF3 not found".to_string())?;
+            else {
+                let found = characteristics
+                    .iter()
+                    .map(|characteristic| {
+                        format!("{} ({:?})", characteristic.uuid, characteristic.properties)
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                return Err(if found.is_empty() {
+                    "MR Star write characteristic 0xFFF3 not found; the device exposes no GATT characteristics".to_string()
+                } else {
+                    format!(
+                        "MR Star write characteristic 0xFFF3 not found; device exposes: {found}"
+                    )
+                });
+            };
             if let Some(notify) = characteristics
                 .iter()
                 .find(|characteristic| characteristic.uuid == notify_uuid)
@@ -590,5 +641,29 @@ async fn run(mut commands: UnboundedReceiver<BleCommand>, events: Sender<BleEven
                 worker.health_check().await;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn matches_mr_star_company_id() {
+        let manufacturer_data = HashMap::from([(protocol::MANUFACTURER_ID, vec![0])]);
+        assert!(is_mr_star_advertisement(&manufacturer_data, &[]));
+    }
+
+    #[test]
+    fn matches_mr_star_service_uuid() {
+        let service = Uuid::parse_str(protocol::SERVICE_UUID).unwrap();
+        assert!(is_mr_star_advertisement(&HashMap::new(), &[service]));
+    }
+
+    #[test]
+    fn rejects_unrelated_advertisement() {
+        let manufacturer_data = HashMap::from([(0x1234, vec![0])]);
+        let service = Uuid::parse_str("0000180f-0000-1000-8000-00805f9b34fb").unwrap();
+        assert!(!is_mr_star_advertisement(&manufacturer_data, &[service]));
     }
 }

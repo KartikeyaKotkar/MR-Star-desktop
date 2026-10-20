@@ -18,10 +18,10 @@ Prebuilt bundles are attached to the
 
 | Platform | Asset | Notes |
 | --- | --- | --- |
-| Linux x86_64 | `MRStar-1.1.0-linux-x86_64.tar.gz` | BlueZ, D-Bus, ALSA, X11 or Wayland, OpenGL |
-| Windows x86_64 | `MRStar-1.1.0-windows-x86_64.zip` | Windows 10/11, Bluetooth enabled |
-| macOS Apple Silicon | `MRStar-1.1.0-macos-arm64.zip` | macOS 13+, ad-hoc signed `.app` |
-| macOS Intel | `MRStar-1.1.0-macos-x86_64.zip` | macOS 13+, ad-hoc signed `.app` |
+| Linux x86_64 | `MRStar-1.1.1-linux-x86_64.tar.gz` | BlueZ, D-Bus, ALSA, X11 or Wayland, OpenGL |
+| Windows x86_64 | `MRStar-1.1.1-windows-x86_64.zip` | Windows 10/11, Bluetooth enabled |
+| macOS Apple Silicon | `MRStar-1.1.1-macos-arm64.zip` | macOS 13+, ad-hoc signed `.app` |
+| macOS Intel | `MRStar-1.1.1-macos-x86_64.zip` | macOS 13+, ad-hoc signed `.app` |
 
 The macOS app is not notarized. On first launch, right-click the app and choose
 **Open**, or remove the quarantine flag:
@@ -69,7 +69,7 @@ No Python, Qt, PortAudio or bundled runtime is required.
 | Area | Implementation |
 | --- | --- |
 | Protocol | Byte-identical frames, including inverted power, `/255` mode encoding, the malformed clock frame, the achromatic HSV quirk, and retries for `0x0B`/`0x0C`/`0x50` |
-| BLE | Scans for company ID `0x2022`, shows named devices when requested, connects up to seven lights, broadcasts writes, parses notifications, auto-connects and retries dropped connections |
+| BLE | Scans for company ID `0x2022` or service `FFF0`, shows named devices when requested, connects up to seven lights, broadcasts writes, parses notifications, auto-connects and retries dropped connections |
 | Modes | All 71 APK modes: 58 reachable plus the hidden 13-mode Flow category |
 | Colour | HSV wheel, presets, custom slots, RGB order, pixel count, brightness |
 | Mic | Device mic source/effect/gain; PC mic level, 32-band spectrum and `0x09` colour frames at 5 Hz |
@@ -77,6 +77,19 @@ No Python, Qt, PortAudio or bundled runtime is required.
 | Schedules | Two on/off schedules, weekday masks, device read and clock sync |
 | Console | TX/RX log and raw hex frame sender |
 | Settings | JSON in the platform config directory |
+
+## BLE troubleshooting
+
+- A row says `MR Star` only when the advertisement contains company ID `0x2022`
+  or service `FFF0`. Rows marked `other` are shown for diagnostics and are not
+  auto-connected.
+- `no longer visible to Bluetooth` means the cached peripheral has gone away.
+  Power the light on, keep it near the PC, and scan again.
+- `write characteristic 0xFFF3 not found` means the device does not implement
+  the MR Star GATT service. The console lists the characteristics it does
+  expose.
+- A BLE light can normally accept one central connection at a time. Disconnect
+  it from the phone or another desktop app before connecting here.
 
 ## Architecture
 
