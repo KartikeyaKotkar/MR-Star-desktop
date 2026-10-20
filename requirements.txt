@@ -1,4 +1,0 @@
-PySide6-Essentials>=6.8,<6.12
-bleak>=3.0,<4
-numpy>=1.26,<3
-sounddevice>=0.4.6,<1

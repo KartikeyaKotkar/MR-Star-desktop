@@ -1,24 +1,15 @@
 # MR Star Desktop
 
-A cross-platform desktop controller for **MR Star** BLE light strips, reconstructed
+Native cross-platform controller for **MR Star** BLE light strips, reconstructed
 from the shipped Android app (`MR Star - v1.0.0.apk`, package `com.frok.mrstar`,
-versionCode 104, versionName 1.0.0). It runs on Linux, Windows and macOS.
+versionCode 104). Runs on Linux, Windows and macOS.
 
-The Android app has no public protocol documentation. Everything here comes
-from decompiling the APK and reading its resource tables; the resulting frames
-are byte-for-byte compatible with the commands the phone sends.
+The Android app has no public protocol documentation. The protocol here was
+recovered from the APK and is byte-for-byte compatible with the frames the phone
+sends. The current `main` branch is the Rust implementation; the earlier Python
+implementation is preserved at tag `v1.0.0`.
 
-> **Status:** early release. The protocol is verified against the decompiled
-> APK, but not yet against physical hardware. Hardware reports are welcome.
-
-## Rust port
-
-The `rust` branch contains a native Rust implementation of the same controller.
-It targets a single small executable (local Linux release: 6.2 MiB) and keeps
-the Python app on `main` unchanged. See [`rust/README.md`](rust/README.md) for
-the build, feature matrix and size comparison.
-
-![MR Star icon](mrstar/assets/icon.png)
+![MR Star icon](assets/icon.png)
 
 ## Download
 
@@ -27,285 +18,126 @@ Prebuilt bundles are attached to the
 
 | Platform | Asset | Notes |
 | --- | --- | --- |
-| Linux x86_64 | `MRStar-1.0.0-linux-x86_64.tar.gz` | glibc 2.34+; BlueZ, D-Bus, `libportaudio2`, `libxcb-cursor0` |
-| Windows x86_64 | `MRStar-1.0.0-windows-x86_64.zip` | Windows 10/11; Bluetooth enabled |
-| macOS Apple Silicon | `MRStar-1.0.0-macos-arm64.zip` | macOS 13+ |
-| macOS Intel | `MRStar-1.0.0-macos-x86_64.zip` | macOS 13+ |
+| Linux x86_64 | `MRStar-1.1.0-linux-x86_64.tar.gz` | BlueZ, D-Bus, ALSA, X11 or Wayland, OpenGL |
+| Windows x86_64 | `MRStar-1.1.0-windows-x86_64.zip` | Windows 10/11, Bluetooth enabled |
+| macOS Apple Silicon | `MRStar-1.1.0-macos-arm64.zip` | macOS 13+, ad-hoc signed `.app` |
+| macOS Intel | `MRStar-1.1.0-macos-x86_64.zip` | macOS 13+, ad-hoc signed `.app` |
 
-The release bundles are unsigned. Windows SmartScreen and macOS Gatekeeper may
-warn; on macOS, right-click the app and choose **Open** once, or remove the
-quarantine flag:
+The macOS app is not notarized. On first launch, right-click the app and choose
+**Open**, or remove the quarantine flag:
 
 ```bash
 xattr -dr com.apple.quarantine "/Applications/MR Star.app"
 ```
 
-Music playback needs `ffmpeg` on `PATH` (or `MRSTAR_FFMPEG` set to its path).
-Linux also needs `libportaudio2` and `libxcb-cursor0` for audio and the Qt X11\nplatform plugin.
+Windows SmartScreen may also warn because the executable is unsigned.
+
+## Build
+
+```bash
+cargo test --release
+cargo build --release
+./target/release/mrstar
+```
+
+Linux build prerequisites:
+
+```bash
+sudo apt install \
+  build-essential pkg-config \
+  libasound2-dev libdbus-1-dev libudev-dev \
+  libegl1-mesa-dev libgl1-mesa-dev libwayland-dev \
+  libx11-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev \
+  libxcb-xfixes0-dev libxcursor-dev libxi-dev libxinerama-dev \
+  libxkbcommon-dev libxkbcommon-x11-dev libxrandr-dev
+```
+
+Runtime prerequisites:
+
+- Linux: BlueZ, D-Bus, ALSA, X11 or Wayland, OpenGL.
+- Windows 10/11: Bluetooth enabled. WASAPI is provided by the OS.
+- macOS 13+: the bundled app includes the Bluetooth and microphone usage
+  descriptions required by macOS.
+- Music playback: `ffmpeg` on `PATH`, or `MRSTAR_FFMPEG` pointing at it. On
+  macOS the app also checks `/opt/homebrew/bin` and `/usr/local/bin`, because
+  Finder-launched apps do not inherit the shell `PATH`.
+
+No Python, Qt, PortAudio or bundled runtime is required.
 
 ## Features
 
-- Scan for lights advertising company ID `0x2022`, auto-connect up to seven.
-- Power, HSV colour wheel, brightness, colour presets, RGB order, pixel count.
-- All 71 animations defined by the APK (58 reachable in its UI plus the hidden
-  "Flow" set), organised by category, with speed and direction controls.
-- Light's built-in microphone effects (Energy, Rhythm, Spectrum, Scroll),
-  sensitivity and source selection.
-- Computer microphone mode: live level/spectrum and `0x09` audio-reactive
-  colour frames at the same ~5 Hz cadence as `VoiceUtils`.
-- Music player: decode files with ffmpeg, play through `sounddevice`, and send
-  `0x04` colour frames derived from an FFT of the playing audio.
-- Two on/off schedules with weekday masks, device time sync, and a live
-  protocol console (TX/RX log, raw frame sender).
-- Settings persist through `QSettings`.
-
-## Reverse-engineering basis
-
-The APK was decompiled with JADX 1.5.1. The files that define the protocol are:
-
-| APK source | What it establishes |
+| Area | Implementation |
 | --- | --- |
-| `com/findn/MyApplication.java` | GATT UUIDs, company-ID scan filter, write-with-response, retries, seven connections |
-| `com/findn/ui/fragment/AdjustFragment.java` | Power, brightness, static colour, pixel-count frames |
-| `com/findn/ui/fragment/ModeFragment.java` | Mode ids, speed, direction, category lists |
-| `com/findn/ui/fragment/MicroPhoneFragment.java` | Mic source, effect ids, gain |
-| `com/findn/ui/fragment/TimerFragment.java` | Schedule frames and notification layout |
-| `com/findn/utils/TimerUtils.java` | Clock-sync frame |
-| `com/findn/utils/VoiceUtils.java` | Phone-mic colour frames |
-| `com/findn/utils/RgbUtils.java` | HSV conversion and its achromatic-colour quirk |
+| Protocol | Byte-identical frames, including inverted power, `/255` mode encoding, the malformed clock frame, the achromatic HSV quirk, and retries for `0x0B`/`0x0C`/`0x50` |
+| BLE | Scans for company ID `0x2022`, shows named devices when requested, connects up to seven lights, broadcasts writes, parses notifications, auto-connects and retries dropped connections |
+| Modes | All 71 APK modes: 58 reachable plus the hidden 13-mode Flow category |
+| Colour | HSV wheel, presets, custom slots, RGB order, pixel count, brightness |
+| Mic | Device mic source/effect/gain; PC mic level, 32-band spectrum and `0x09` colour frames at 5 Hz |
+| Music | `ffmpeg` decode, `cpal` playback, seek/volume/playlist, 32-band FFT and `0x04` colour frames |
+| Schedules | Two on/off schedules, weekday masks, device read and clock sync |
+| Console | TX/RX log and raw hex frame sender |
+| Settings | JSON in the platform config directory |
 
-The app's `cmode1` … `cmode117` strings were extracted from the resource table.
-`ModeFragment` only builds lists for ids 1–93 (with gaps), so ids 94–117 are
-not reachable in the shipped UI and are not included here.
+## Architecture
 
-## BLE profile
+- `src/protocol.rs` — APK command frames, notifications and conversions.
+- `src/modes.rs` — generated 71-mode catalogue.
+- `src/ble.rs` — `btleplug` worker, scan/connect/notify/write loop.
+- `src/audio.rs` — `cpal` microphone analysis, `ffmpeg` decode, playback and FFT.
+- `src/app.rs` — egui interface and page state.
+- `src/settings.rs` — persisted JSON settings.
+- `macos/Info.plist` — macOS app metadata, Bluetooth and microphone permissions.
 
-| Item | Value |
-| --- | --- |
-| Service | `0000FFF0-0000-1000-8000-00805F9B34FB` |
-| Write characteristic | `0000FFF3-0000-1000-8000-00805F9B34FB` (write with response) |
-| Notify characteristic | `0000FFF4-0000-1000-8000-00805F9B34FB` |
-| Advertisement filter | manufacturer/company ID `0x2022` (bytes `22 20` on air) |
-| Maximum connections | 7 (as configured by the APK) |
+## Differences from the archived Python app
 
-## Frame format
+- The file picker is a path field instead of a native dialog. This avoids
+  pulling GTK or another desktop toolkit into the binary.
+- The UI is egui, so widget styling is similar but not pixel-identical to the
+  Qt version.
+- The Rust binary dynamically links the platform Bluetooth, audio and window
+  libraries. The Python bundle shipped more of its stack.
+- Settings are JSON instead of `QSettings`.
+- Music is decoded by an external `ffmpeg`, the same runtime dependency as the
+  Python app.
 
-Most commands are:
+## Size
 
-```text
-BC <command> <payload-length> <payload…> 55
-```
+The Rust targets are single stripped executables (macOS uses a small `.app`
+bundle). CI size checks enforce a 20 MiB (20,971,520-byte) ceiling on every
+executable and archive.
 
-All multi-byte integers are big-endian.
+| Platform | Executable | Archive | Python v1.0.0 archive |
+| --- | ---: | ---: | ---: |
+| Linux x86_64 | ~6.2 MiB | ~2.8 MiB | 86.25 MiB |
+| Windows x86_64 | ~4.2 MiB | ~2.1 MiB | 54.29 MiB |
+| macOS x86_64 | ~4.4 MiB | ~2.7 MiB | 35.58 MiB |
+| macOS arm64 | ~3.6 MiB | ~2.5 MiB | 31.96 MiB |
 
-| Command | Name | Payload | Example |
-| --- | --- | --- | --- |
-| `0x01` | Power | `00` = on, `01` = off | `BC 01 01 00 55` |
-| `0x02` | Colour order | `01`–`06` = RGB, RBG, GRB, GBR, BRG, BGR | `BC 02 01 06 55` |
-| `0x03` | Pixel count | 16-bit, clamped by the app to 8–300 | `BC 03 02 01 2C 55` |
-| `0x04` | Static colour | hue 16-bit (0–360), saturation 16-bit (0–1000), `00 00` | `BC 04 06 00 78 03 E8 00 00 55` |
-| `0x05` | Brightness | 16-bit (3–1000), then four zero bytes | `BC 05 06 03 E8 00 00 00 00 55` |
-| `0x06` | Mode | two bytes | `BC 06 02 00 01 55` |
-| `0x07` | Direction | `00` = forward, `01` = reverse | `BC 07 01 00 55` |
-| `0x08` | Speed | `00`–`64` | `BC 08 01 32 55` |
-| `0x09` | Mic colour | same payload as `0x04` | `BC 09 06 00 78 03 E8 00 00 55` |
-| `0x0B` | Clock sync | see anomaly below | `BC 0B 07 07 EA 0A 14 0F 1E 00 55 02` |
-| `0x0C` | Read schedule | `01` | `BC 0C 01 01 55` |
-| `0x0D` | Set schedule | `01, on/off, enabled, weekday-mask, hour, minute` | `BC 0D 06 01 01 01 01 07 05 55` |
-| `0x0F` | Mic source | `01` = light's mic, `00` = phone/PC | `BC 0F 01 01 55` |
-| `0x11` | Mic effect | `01` Energy, `02` Rhythm, `03` Spectrum, `04` Scroll | `BC 11 01 04 55` |
-| `0x12` | Mic gain | `00`–`100` | `BC 12 01 64 55` |
-| `0x13` | Hue only | hue 16-bit | `BC 13 02 01 68 55` |
+The Python `v1.0.0` Linux distribution was a PyInstaller one-directory bundle:
+about 243 MiB on disk and 90,442,064 bytes compressed. Its `MRStar` launcher was
+about 5.1 MiB, but could not run without the surrounding bundle.
 
-Schedule weekday masks use bit 0 = Monday through bit 6 = Sunday.
-
-### Protocol quirks preserved from the APK
-
-- **Power is inverted:** payload `0` switches the strip on.
-- **Mode encoding uses `/255` and `%255`,** not `/256` and `%256`. For all
-  shipped mode ids (< 255) the result is an ordinary 16-bit value, but the
-  arithmetic is reproduced exactly.
-- **Clock sync is malformed:** the length byte is `7`, eight data bytes follow,
-  the `0x55` terminator sits *before* the weekday, and there is no terminator
-  after it. Weekday is `1` = Monday … `7` = Sunday. The desktop app sends the
-  same bytes.
-- **Achromatic colours force saturation to 1.0.** White, grey and black are all
-  sent as hue 0 / saturation 1000, matching `RgbUtils.getHsvFromRgb`.
-- **The app retries only commands `0x0B`, `0x0C` and `0x50`** after a failed
-  write. The desktop transport retries those once and does not retry other
-  frames.
-- **The Android UI builds a fifth "Flow" category (ids 63–75) but never adds
-  its tab to the tab strip.** The catalogue keeps it, marked as hidden.
-
-### Notifications
-
-Notifications on `0xFFF4` are parsed the same way as `TimerFragment`:
-
-| Command | Meaning | Layout used |
-| --- | --- | --- |
-| `0x05` | Brightness | 16-bit at 0-based bytes 3–4 |
-| `0x08` | Speed | 0-based byte 3 |
-| `0x0D` | Schedule | slot at 4, enabled at 5, mask at 6, hour at 7, minute at 8 (0-based) |
-| `0x12` | Mic gain | 0-based byte 3 |
-
-Anything else is logged as raw bytes.
-
-## Requirements
-
-### Prebuilt bundles
-
-- Linux x86_64: glibc 2.34+, BlueZ and a working D-Bus session.
-- Windows 10/11: Bluetooth enabled; no separate Python install.
-- macOS 13 or newer: Bluetooth and microphone permissions are requested by
-  the app on first use.
-
-### Running from source
-
-- Python 3.10+ (tested with Python 3.14).
-- `PySide6-Essentials`, `bleak` 3.x, `numpy`, `sounddevice`.
-- `ffmpeg` on `PATH` for music playback (or set `MRSTAR_FFMPEG`).
-- Linux: BlueZ, D-Bus, `libportaudio2`, `libxcb-cursor0`.
-- macOS: PortAudio is bundled by the `sounddevice` wheel; the app needs
-  Bluetooth and microphone permission.
-- Windows: PortAudio is bundled by the `sounddevice` wheel.
-
-On Linux, make sure the adapter is powered and not blocked:
+## Tests
 
 ```bash
-sudo systemctl enable --now bluetooth
-bluetoothctl show          # check "Powered: yes"
-rfkill list bluetooth      # must not be soft/hard blocked
+cargo fmt --all -- --check
+cargo test --release
+cargo build --release
+./target/release/mrstar --smoke-test
 ```
 
-On Linux, `sudo apt install bluez libportaudio2 libxcb-cursor0 ffmpeg` covers the
-runtime dependencies. On macOS, `brew install ffmpeg`; on Windows,
-`winget install Gyan.FFmpeg`.
+The smoke test validates representative protocol frames, the 71-mode
+catalogue, default settings, and that the release binary starts without a GUI.
+The CI workflow builds Linux, Windows, macOS Intel and macOS Apple Silicon and
+runs the size gate. macOS arm64 is cross-compiled on the Intel runner; its
+Mach-O architecture is checked before packaging.
 
-## Run from source
+## Hardware status
 
-Clone the repository, then start the app.
-
-Linux / macOS:
-
-```bash
-git clone https://github.com/KartikeyaKotkar/MR-Star-desktop.git
-cd MR-Star-desktop
-./run.sh
-```
-
-Windows:
-
-```bat
-git clone https://github.com/KartikeyaKotkar/MR-Star-desktop.git
-cd MR-Star-desktop
-run.bat
-```
-
-`run.sh` / `run.bat` create `.venv` if needed, install missing dependencies, and
-start `python -m mrstar`.
-
-Manual setup:
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/python -m mrstar
-```
-
-On Windows the virtual environment uses `.venv\Scripts\python.exe`.
-
-You can also install the package and use its entry point:
-
-```bash
-python -m pip install .
-mrstar
-```
-
-The shipped Android APK is **not** distributed in this repository: it is
-proprietary and ignored by Git. Keep your own copy in the repository root if
-you want to compare behaviour; the app does not need it at runtime.
-
-## Tests and CI
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-The suite covers exact frame bytes, notification decoding, the mode catalogue,
-audio DSP, and a headless Qt smoke test (`QT_QPA_PLATFORM=offscreen` is set by
-the test). It does not need a BLE adapter.
-
-GitHub Actions runs the same suite on Linux, Windows and macOS with Python 3.12;
-the workflow is in `.github/workflows/ci.yml`. Tagged releases build native
-bundles for all three platforms via `.github/workflows/release.yml`. Maintainers
-can follow [PUBLISHING.md](PUBLISHING.md); local packaging steps are in
-[BUILDING.md](BUILDING.md).
-
-## Project layout
-
-```text
-mrstar/protocol.py   frame builders, UUIDs, notification parser
-mrstar/modes.py      71-mode catalogue and categories
-mrstar/ble.py        threaded bleak transport, scan filter, reconnects
-mrstar/audio.py      microphone analyser and ffmpeg/sounddevice player
-mrstar/ui.py         PySide6 window, pages, theme, settings
-mrstar/assets/       application icons (PNG, ICO, ICNS)
-mrstar/__main__.py   application entry point
-launcher.py          frozen-app entry point
-packaging/           PyInstaller spec and Windows version metadata
-run.sh / run.bat     Unix and Windows source launchers
-tests/               protocol, catalogue, DSP and UI smoke tests
-.github/workflows/   CI and tagged-release builds
-```
-
-The BLE event loop runs on a private asyncio thread. Qt talks to it through
-`DeviceBridge` signals, so the UI never blocks on GATT operations. Release
-builds use `PySide6-Essentials`, a one-directory bundle, and precomputed audio
-windows to keep startup and artifact size down.
-
-## Limitations
-
-- **No physical MR Star hardware was available during development.** The
-  protocol is verified against the decompiled APK, not against a live strip.
-  If a command behaves differently on your hardware, use the protocol console
-  and compare it with the Android app.
-- Release bundles are unsigned, so Windows SmartScreen and macOS Gatekeeper may
-  show warnings. macOS builds target macOS 13+; Windows builds target Windows
-  10/11.
-- Music playback requires `ffmpeg`; the desktop port does not bundle it.
-- macOS and Windows ask for Bluetooth and microphone permissions on first use.
-  Linux BLE access depends on BlueZ and the adapter permissions.
-- Music and PC-microphone effects are desktop reimplementations of the Android
-  `Visualizer`/`MediaRecorder` logic. They use the same command ids and cadence,
-  but the exact colour mapping is an approximation.
-- The Android app's hidden "Flow" modes are included, but whether a particular
-  firmware build implements all of them is unknown.
-- Mode ids 94–117 exist as strings in the APK but are not referenced by the
-  shipped UI, so they are intentionally omitted.
-- This desktop port does not implement firmware update, OTA, or pairing/bonding
-  features.
-- Commands are broadcast to every connected light, matching
-  `MyApplication.sendDataToBle`.
-
-## Legal note
-
-This is an independent interoperability project. It contains no Android app
-code; protocol constants and animation names were derived from the shipped
-APK for the purpose of controlling the same hardware from a desktop.
-
-The launcher icon in `mrstar/assets/icon.png` comes from the Android package and
-is used only to identify the device; it is not covered by the MIT license.
-
-The Android APK itself is not distributed here and must not be committed.
-Third-party components (`PySide6`, `bleak`, `numpy`, `sounddevice`, and any
-system `ffmpeg`) keep their own licenses.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, protocol-change
-rules, and hardware reporting guidance.
+The protocol is verified against the decompiled APK, but not yet against
+physical MR Star hardware. Live BLE and microphone behavior still needs a
+hardware soak test.
 
 ## License
 
-[MIT](LICENSE) © 2026 MR Star Desktop contributors.
-
+MIT. See [LICENSE](LICENSE).

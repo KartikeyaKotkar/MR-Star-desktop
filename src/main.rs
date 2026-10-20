@@ -27,7 +27,7 @@ fn main() {
 }
 
 fn run() -> eframe::Result<()> {
-    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../../mrstar/assets/icon.png"))
+    let icon = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
         .ok()
         .map(Arc::new);
     let mut viewport = eframe::egui::ViewportBuilder::default()

@@ -8,7 +8,9 @@
 
 ## Tests
 
-- [ ] `.venv/bin/python -m unittest discover -s tests -v`
+- [ ] `cargo fmt --all -- --check`
+- [ ] `cargo test --release`
+- [ ] `cargo build --release && ./target/release/mrstar --smoke-test`
 - [ ] Tested against hardware (describe the light and adapter below)
 
 ## Notes

@@ -530,9 +530,13 @@ impl MrStarApp {
                 }
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.label(
-                        RichText::new("Desktop 1.0.0  ·  APK v1.0.0")
-                            .color(Color32::from_rgb(95, 108, 129))
-                            .size(11.0),
+                        RichText::new(concat!(
+                            "Desktop ",
+                            env!("CARGO_PKG_VERSION"),
+                            "  ·  APK v1.0.0"
+                        ))
+                        .color(Color32::from_rgb(95, 108, 129))
+                        .size(11.0),
                     );
                 });
             });

@@ -1,17 +1,13 @@
-# Python
-.venv/
-.venv-build/
-__pycache__/
-*.py[cod]
-*.egg-info/
-.pytest_cache/
-build/
-dist/
-release/
+# Rust
+/target/
+
+# Local packaging output
+/dist/
+/release/
 
 # Local tooling and the proprietary Android artifact
 opencode.json
-MR Star - v1.0.0.apk
+*.apk
 
 # Editors / OS
 .idea/

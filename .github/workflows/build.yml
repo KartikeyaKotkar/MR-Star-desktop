@@ -1,9 +1,10 @@
-name: Rust build
+name: Build
 
 on:
   push:
-    branches: [rust]
-    tags: ["rust-v*"]
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -68,21 +69,16 @@ jobs:
           targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
 
       - name: Test
         if: matrix.target != 'aarch64-apple-darwin'
-        working-directory: rust
         run: cargo test --locked --release --target "${{ matrix.target }}"
 
       - name: Build
-        working-directory: rust
         run: cargo build --locked --release --target "${{ matrix.target }}"
 
       - name: Smoke test and enforce 20 MiB ceiling
         shell: bash
-        working-directory: rust
         run: |
           EXE="target/${{ matrix.target }}/release/mrstar"
           if [ "${{ runner.os }}" = "Windows" ]; then EXE="$EXE.exe"; fi
@@ -102,11 +98,10 @@ jobs:
 
       - name: Package
         shell: bash
-        working-directory: rust
         run: |
           set -euo pipefail
           VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          ASSET="MRStar-rs-${VERSION}-${{ matrix.name }}"
+          ASSET="MRStar-${VERSION}-${{ matrix.name }}"
           EXE="target/${{ matrix.target }}/release/mrstar"
           if [ "${{ runner.os }}" = "Windows" ]; then EXE="$EXE.exe"; fi
           mkdir -p "dist/$ASSET" release
@@ -117,7 +112,7 @@ jobs:
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp "$EXE" "$APP/Contents/MacOS/MRStar"
             cp macos/Info.plist "$APP/Contents/Info.plist"
-            cp ../mrstar/assets/icon.icns "$APP/Contents/Resources/icon.icns"
+            cp assets/icon.icns "$APP/Contents/Resources/icon.icns"
             codesign --force --deep --sign - "$APP"
           else
             cp "$EXE" "dist/$ASSET/MRStar"
@@ -141,12 +136,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rust-${{ matrix.name }}
-          path: rust/release/*
+          name: mrstar-${{ matrix.name }}
+          path: release/*
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/rust-v')
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -159,7 +154,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          name: MR Star Desktop Rust ${{ github.ref_name }}
+          name: MR Star Desktop ${{ github.ref_name }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: release/*

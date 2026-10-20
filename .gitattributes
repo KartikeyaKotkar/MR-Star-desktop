@@ -1,11 +1,13 @@
 * text=auto eol=lf
 
-*.py text
+*.rs text
+*.toml text
 *.md text
 *.yml text
 *.yaml text
 *.sh text eol=lf
 *.txt text
+*.plist text
 
 *.png binary
 *.ico binary

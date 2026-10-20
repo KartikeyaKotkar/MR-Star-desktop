@@ -1,13 +1,14 @@
 [package]
 name = "mrstar"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 rust-version = "1.85"
-description = "Rust desktop controller for MR Star BLE light strips"
+description = "Native desktop controller for MR Star BLE light strips"
+repository = "https://github.com/KartikeyaKotkar/MR-Star-desktop"
+readme = "README.md"
 license = "MIT"
 
 [dependencies]
-anyhow = "1"
 btleplug = "0.13"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 cpal = "0.18"
