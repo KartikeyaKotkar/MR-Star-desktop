@@ -134,7 +134,7 @@ jobs:
           fi
           ls -lh "$archive"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: mrstar-${{ matrix.name }}
           path: release/*
